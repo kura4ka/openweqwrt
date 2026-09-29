@@ -7,13 +7,19 @@ MTD `overlay` образ не подключает и не изменяет.
 
 Этот репозиторий основан на проекте
 [timofey-maykov/be7000-openwrt](https://github.com/timofey-maykov/be7000-openwrt),
-который хранит конфигурацию сборки, патчи и overlay. Его workflow собирает из
-базового порта [kravasuper/openwrt](https://github.com/kravasuper/openwrt),
-ветки `xiaomi_be7000`, коммит `790d036a`, затем накладывает файлы проекта и
-QWRT-профиль. Здесь собирается только sysupgrade: без factory-образа, публикации
-пакетного feed или GitHub Release. Workflow прикладывает образ, manifest и
-SHA-256 к запуску GitHub Actions; артефакт хранится 14 дней. Сборка запускается
-при обновлении ветки `main` или вручную во вкладке **Actions → Build QWRT sysupgrade**.
+за основу взяты его файлы релиза 1.3.1 (`8b7c2fb`): конфигурация, feeds,
+патчи и overlay. Точные исходные версии записаны в [source.buildinfo](source.buildinfo).
+Исходный workflow собирает дерево базового порта
+[kravasuper/openwrt](https://github.com/kravasuper/openwrt), ветка
+`xiaomi_be7000`, коммит `790d036a`; этот репозиторий применяет к нему профиль
+QWRT. В сборке сохранены возможности 1.3.1, включая разделение 5 ГГц на два
+радио; для этого ядро резервирует 12 МиБ оперативной памяти. QWRT-разметка
+остаётся односекционной.
+
+Здесь собирается только sysupgrade: без factory-образа, публикации пакетного
+feed или GitHub Release. Workflow прикладывает образ, manifest и SHA-256 к
+запуску GitHub Actions; артефакт хранится 14 дней. Сборка запускается при
+обновлении ветки `main` или вручную во вкладке **Actions → Build QWRT sysupgrade**.
 
 Для обновления скачайте `xiaomi-be7000-qwrt-squashfs-sysupgrade.bin` из
 артефактов успешной сборки и загрузите его через страницу обновления QWRT.

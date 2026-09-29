@@ -14,6 +14,11 @@ key from the matching upstream build so the existing signed package feeds can
 still be checked. This repository does not publish a package feed and never
 stores or requests the corresponding private signing key.
 
+Project inputs follow Timofey's v1.3.1 release, including the optional two-radio
+5 GHz mode. That mode reserves a 12 MiB memory region for the dual-MAC radio
+firmware, reducing memory available to Linux by 12 MiB. The regular single-radio
+mode remains the default.
+
 Upload the artifact file `xiaomi-be7000-qwrt-squashfs-sysupgrade.bin` through
 QWRT's firmware upgrade page. Let QWRT keep its configuration backup enabled.
 The upgrade replaces the UBI contents of the 80 MiB `rootfs` partition and

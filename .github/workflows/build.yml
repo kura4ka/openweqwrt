@@ -10,6 +10,9 @@ env:
   OWRT_BRANCH: xiaomi_be7000
   OWRT_COMMIT: 790d036a
   VERSION_STRING: r20260623-790d036a
+  PROJECT_RELEASE: 1.3.1
+  PROJECT_SOURCE_COMMIT: 8b7c2fb3372a548fd3562ee4f77d2ce9691ba1f3
+  PROJECT_VERSION: 1.3.1-QWRT
   CCACHE_MAXSIZE: 2G
   ARCH: aarch64_cortex-a73
   TARGET: qualcommbe/ipq95xx
@@ -60,14 +63,37 @@ jobs:
           for p in ../repo/patches/*.patch; do
             cp "$p" target/linux/qualcommbe/patches-6.18/
           done
+          mkdir -p package/kernel/mac80211/patches/ath12k
+          cp -a ../repo/patches/mac80211-ath12k/. package/kernel/mac80211/patches/ath12k/
+          # The pinned Krava port's existing 307 patch has a malformed hunk
+          # count (7/6 although its actual counts are 6/5); fix it before the
+          # backports patch series is applied.
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("package/kernel/mac80211/patches/ath12k/307-wifi-ath12k-avoid-duplicate-soc-debugfs-files.patch")
+          text = p.read_text()
+          old = "@@ -14387,7 +14387,6 @@"
+          new = "@@ -14387,6 +14387,5 @@"
+          if text.count(old) != 1:
+              raise SystemExit("unexpected Krava ath12k patch 307; refusing an unverified rewrite")
+          p.write_text(text.replace(old, new))
+          PY
+          grep -q '^@@ -14387,6 +14387,5 @@' package/kernel/mac80211/patches/ath12k/307-wifi-ath12k-avoid-duplicate-soc-debugfs-files.patch
+          # Apply shared changes first, except slot-specific patches and the
+          # RF GPIO conversion, which needs the QWRT DTS's GPIO hogs in place.
           for p in ../repo/patches/tree/*.patch; do
             case "$p" in
-              *001-dts-be7000.patch|*003-sysupgrade-slot.patch|*005-dts-be7000-no-l2-rpm-vote.patch) continue ;;
+              *001-dts-be7000.patch|*003-sysupgrade-slot.patch|*005-dts-be7000-no-l2-rpm-vote.patch|*007-dts-be7000-rf-select-pinctrl.patch) continue ;;
             esac
-            patch -p1 < "$p"
+            patch --batch --forward -p1 < "$p"
           done
-          for p in ../repo/profiles/qwrt/patches/tree/*.patch; do
-            patch -p1 < "$p"
+          patch --batch --forward -p1 < ../repo/profiles/qwrt/patches/tree/001-dts-be7000.patch
+          # v1.3.1 needs the RF lines free for be7000-5g-split; this patch
+          # converts the equivalent GPIO hogs in the QWRT DTS to pinctrl.
+          patch --batch --forward -p1 < ../repo/patches/tree/007-dts-be7000-rf-select-pinctrl.patch
+          for p in ../repo/profiles/qwrt/patches/tree/002-ubi-volume.patch \
+                   ../repo/profiles/qwrt/patches/tree/003-sysupgrade.patch; do
+            patch --batch --forward -p1 < "$p"
           done
           mkdir -p files
           cp -a ../repo/overlay-files/. files/
@@ -112,10 +138,27 @@ jobs:
           echo 'CONFIG_SIGNATURE_CHECK=y' >> .config
           echo 'CONFIG_DEVEL=y' >> .config
           echo 'CONFIG_CCACHE=y' >> .config
+          {
+            echo "CONFIG_IMAGEOPT=y"
+            echo "CONFIG_VERSIONOPT=y"
+            echo "CONFIG_VERSION_DIST=\"Beam WRT\""
+            echo "CONFIG_VERSION_NUMBER=\"$PROJECT_VERSION\""
+            echo "CONFIG_VERSION_CODE=\"$VERSION_STRING\""
+            echo "CONFIG_VERSION_MANUFACTURER=\"Beam WRT\""
+            echo "CONFIG_VERSION_MANUFACTURER_URL=\"https://github.com/timofey-maykov/be7000-openwrt\""
+            echo "CONFIG_VERSION_HOME_URL=\"https://github.com/timofey-maykov/be7000-openwrt\""
+            echo "CONFIG_VERSION_BUG_URL=\"https://github.com/timofey-maykov/be7000-openwrt/issues\""
+            echo "CONFIG_VERSION_SUPPORT_URL=\"https://4pda.to/forum/index.php?showtopic=1070166\""
+            echo "CONFIG_VERSION_PRODUCT=\"Xiaomi BE7000\""
+            echo "# CONFIG_VERSION_FILENAMES is not set"
+            echo "# CONFIG_VERSION_CODE_FILENAMES is not set"
+          } >> .config
           make defconfig
           grep -q '^# CONFIG_SIGNED_PACKAGES is not set' .config
           grep -q '^CONFIG_SIGNATURE_CHECK=y' .config
           grep -q '^CONFIG_CCACHE=y' .config
+          grep -q '^CONFIG_VERSION_DIST="Beam WRT"' .config
+          grep -q '^CONFIG_VERSION_NUMBER="1.3.1-QWRT"' .config
 
       - name: Cache toolchain and sources
         uses: actions/cache@v4
@@ -156,8 +199,9 @@ jobs:
           sed -i "s|feed/targets/$TARGET/packages/packages.adb|feed/targets/$TARGET/$VERMAGIC/packages/packages.adb|" "$f"
           grep "feed/targets" "$f"
           {
-            echo "VERSION=qwrt"
+            echo "VERSION=$PROJECT_VERSION"
             echo "TAG=qwrt"
+            echo "PROJECT_SOURCE_COMMIT=$PROJECT_SOURCE_COMMIT"
             echo "DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
             echo "BUILD=${{ github.run_id }}"
             echo "KERNEL=$VERMAGIC"
@@ -185,11 +229,24 @@ jobs:
           dts=target/linux/qualcommbe/dts/ipq9574-be7000.dts
           grep -q 'ubi.block=0,rootfs root=/dev/ubiblock0_1' "$dts"
           ! grep -q 'ubi.mtd=overlay' "$dts"
+          ! grep -q 'rootfs_1' target/linux/qualcommbe/ipq95xx/base-files/lib/upgrade/platform.sh
           grep -q 'regulator_fixed_1p8' "$dts"
           ! grep -q 'mp5496_l2: l2' "$dts"
+          grep -q 'mlo_global_mem@57300000' "$dts"
+          grep -q 'reg = <0x0 0x57300000 0x0 0xc00000>' "$dts"
+          grep -q 'wifi_5g_rf_default:' "$dts"
+          ! grep -q 'wifi-5g-rf-select[01]-hog' "$dts"
+          for p in 308-wifi-ath12k-dt-board-id-selects-dualmac.patch \
+                   309-wifi-ath12k-pci-fixed-mem-keep-all-segments.patch \
+                   310-wifi-ath12k-board-id-parameter.patch; do
+            test -s "package/kernel/mac80211/patches/ath12k/$p"
+          done
           ! test -e build_dir/target-*/root-qualcommbe/usr/sbin/be7000-update
           grep -q "option enabled '0'" build_dir/target-*/root-qualcommbe/etc/config/bigoverlay
           test -s build_dir/target-*/root-qualcommbe/etc/apk/keys/public-key.pem
+          test -x build_dir/target-*/root-qualcommbe/usr/sbin/be7000-5g-split
+          test -s build_dir/target-*/root-qualcommbe/lib/firmware/ath12k/QCN9274/hw2.0/board.bin
+          test -L build_dir/target-*/root-qualcommbe/etc/rc.d/S09be7000-5g-split
 
       - name: Prepare sysupgrade artifact
         run: |
@@ -198,6 +255,7 @@ jobs:
           cp "$image" out-qwrt/xiaomi-be7000-qwrt-squashfs-sysupgrade.bin
           cp "owrt/bin/targets/$TARGET/$DEVICE.manifest" out-qwrt/manifest.txt
           cp repo/profiles/qwrt/README.md out-qwrt/README.txt
+          cp repo/source.buildinfo out-qwrt/source.buildinfo
           (cd out-qwrt && sha256sum xiaomi-be7000-qwrt-squashfs-sysupgrade.bin > sha256sums.txt)
 
       - name: Upload sysupgrade artifact
