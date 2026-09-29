@@ -232,7 +232,7 @@ jobs:
           ! grep -q 'rootfs_1' target/linux/qualcommbe/ipq95xx/base-files/lib/upgrade/platform.sh
           grep -q 'regulator_fixed_1p8' "$dts"
           ! grep -q 'mp5496_l2: l2' "$dts"
-          grep -q 'mlo_global_mem@57300000' "$dts"
+          grep -q 'mlo-global-mem@57300000' "$dts"
           grep -q 'reg = <0x0 0x57300000 0x0 0xc00000>' "$dts"
           grep -q 'wifi_5g_rf_default:' "$dts"
           ! grep -q 'wifi-5g-rf-select[01]-hog' "$dts"
