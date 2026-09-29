@@ -1,0 +1,52 @@
+--- a/target/linux/qualcommbe/dts/ipq9574-be7000.dts
++++ b/target/linux/qualcommbe/dts/ipq9574-be7000.dts
+@@ -35,2 +35,2 @@
+-		 * Create a UBI block device for the stock root volume name and
+-		 * make the later root= override win.
++		 * QWRT names the root UBI volume "rootfs" (volume ID 1); this
++		 * later root= argument overrides the bootloader's root value.
+@@ -38 +38,10 @@
+-		bootargs-append = " ubi.block=0,ubi_rootfs root=/dev/ubiblock0_1";
++		bootargs-append = " ubi.block=0,rootfs root=/dev/ubiblock0_1 cpufreq.default_governor=powersave mtdoops.mtddev=crash mtdoops.record_size=65536";
++	};
++
++	regulator_fixed_1p8: s1800 {
++		compatible = "regulator-fixed";
++		regulator-min-microvolt = <1800000>;
++		regulator-max-microvolt = <1800000>;
++		regulator-boot-on;
++		regulator-always-on;
++		regulator-name = "fixed_1p8";
+@@ -309,7 +317,0 @@
+-
+-		mp5496_l2: l2 {
+-			regulator-min-microvolt = <1800000>;
+-			regulator-max-microvolt = <1800000>;
+-			regulator-always-on;
+-			regulator-boot-on;
+-		};
+@@ -934 +936 @@
+-	vdda-pll-supply = <&mp5496_l2>;
++	vdda-pll-supply = <&regulator_fixed_1p8>;
+@@ -942 +944 @@
+-	vdda-pll-supply = <&mp5496_l2>;
++	vdda-pll-supply = <&regulator_fixed_1p8>;
+@@ -982,0 +985,18 @@
++
++/* Stock single-phy 5 GHz RF routing (TLMM6 low / TLMM7 high).
++ * Without this the 5 GHz radio has severely weak reception. */
++&tlmm {
++	wifi-5g-rf-select0-hog {
++		gpio-hog;
++		gpios = <6 GPIO_ACTIVE_HIGH>;
++		output-low;
++		line-name = "wifi-5g-rf-select0";
++	};
++
++	wifi-5g-rf-select1-hog {
++		gpio-hog;
++		gpios = <7 GPIO_ACTIVE_HIGH>;
++		output-high;
++		line-name = "wifi-5g-rf-select1";
++	};
++};

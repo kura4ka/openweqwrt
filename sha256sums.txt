@@ -1,0 +1,2 @@
+5a0433289a6edc53f3c8be24d2339af5eec2049a85a0ecb72aea12df0869465f  openwrt-qualcommbe-ipq95xx-xiaomi_be7000-squashfs-factory.ubi
+8f0bf61b74105e03796b98bca06e280da34c82a77fcca48fa17bcd03127ef9b1  openwrt-qualcommbe-ipq95xx-xiaomi_be7000-squashfs-sysupgrade.bin
