@@ -17,7 +17,6 @@ env:
   ARCH: aarch64_cortex-a73
   TARGET: qualcommbe/ipq95xx
   DEVICE: openwrt-qualcommbe-ipq95xx-xiaomi_be7000
-  PROFILE: qwrt
 
 permissions:
   contents: read
@@ -253,7 +252,12 @@ jobs:
           mkdir -p out-qwrt
           image="owrt/bin/targets/$TARGET/$DEVICE-squashfs-sysupgrade.bin"
           cp "$image" out-qwrt/xiaomi-be7000-qwrt-squashfs-sysupgrade.bin
-          cp "owrt/bin/targets/$TARGET/$DEVICE.manifest" out-qwrt/manifest.txt
+          manifest="$(find "owrt/bin/targets/$TARGET" -maxdepth 1 -type f -name '*.manifest' -print -quit)"
+          if [ -n "$manifest" ]; then
+            cp "$manifest" out-qwrt/manifest.txt
+          else
+            echo "No target manifest found; continuing with the required sysupgrade image."
+          fi
           cp repo/profiles/qwrt/README.md out-qwrt/README.txt
           cp repo/source.buildinfo out-qwrt/source.buildinfo
           (cd out-qwrt && sha256sum xiaomi-be7000-qwrt-squashfs-sysupgrade.bin > sha256sums.txt)
